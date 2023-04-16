@@ -1,3 +1,6 @@
 setitimer-helper
 squish-pty
 squish-unix
+/pintos.pm
+/pintos
+/pintos-gdb
