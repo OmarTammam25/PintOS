@@ -28,6 +28,9 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* List of currently sleeping threads*/
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,12 +95,14 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init(&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  initial_thread->wakeup_time = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -312,6 +317,39 @@ thread_yield (void)
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
+}
+
+void
+thread_insert_sleep (void)
+{
+    list_insert_ordered(&sleep_list, &thread_current ()->sleepElem,
+    &thread_compare_with_wakeup_time, NULL);
+}
+
+void
+thread_wakeup (void)
+{
+    if(list_size(&sleep_list)){
+    struct thread* thread_to_wakeup = 
+      list_entry(list_front(&sleep_list), struct thread, sleepElem);
+  
+    while (list_size(&sleep_list) && timer_elapsed(thread_to_wakeup->wakeup_time) >= 0)
+    {
+      thread_unblock(list_entry(list_pop_front(&sleep_list), struct thread, sleepElem));
+      if(list_size(&sleep_list))
+        thread_to_wakeup = list_entry(list_front(&sleep_list), struct thread, sleepElem);
+    }
+  }
+}
+
+bool 
+thread_compare_with_wakeup_time(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  struct thread *thread_a = list_entry(a, struct thread, sleepElem);
+  struct thread *thread_b = list_entry(b, struct thread, sleepElem);
+  if(thread_a->wakeup_time == thread_b->wakeup_time)
+    return thread_a->priority > thread_b->priority;
+  return thread_a->wakeup_time < thread_b->wakeup_time;
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
