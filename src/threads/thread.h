@@ -134,6 +134,9 @@ void thread_wakeup (void);
 
 bool thread_compare_with_wakeup_time(const struct list_elem*, 
    const struct list_elem*, void*);
+
+bool thread_compare_with_priority(const struct list_elem*, 
+   const struct list_elem*, void*);
    
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
@@ -146,5 +149,6 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+struct thread* thread_idle(void);
 
 #endif /* threads/thread.h */

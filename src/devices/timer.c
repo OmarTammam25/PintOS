@@ -176,6 +176,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  // printf("current ticks: %"PRId64"\n", ticks);
   thread_wakeup();
   thread_tick ();
 }

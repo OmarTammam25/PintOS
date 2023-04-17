@@ -242,7 +242,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, &thread_compare_with_priority, NULL);
+  // list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -312,8 +313,8 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  list_insert_ordered(&ready_list, &cur->elem, &thread_compare_with_priority, NULL);
+  // list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -322,8 +323,8 @@ thread_yield (void)
 void
 thread_insert_sleep (void)
 {
-    list_insert_ordered(&sleep_list, &thread_current ()->sleepElem,
-    &thread_compare_with_wakeup_time, NULL);
+  list_insert_ordered(&sleep_list, &thread_current ()->sleepElem,
+  &thread_compare_with_wakeup_time, NULL);
 }
 
 void
@@ -351,6 +352,13 @@ thread_compare_with_wakeup_time(const struct list_elem *a, const struct list_ele
     return thread_a->priority > thread_b->priority;
   return thread_a->wakeup_time < thread_b->wakeup_time;
 }
+bool 
+thread_compare_with_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  struct thread *thread_a = list_entry(a, struct thread, sleepElem);
+  struct thread *thread_b = list_entry(b, struct thread, sleepElem);
+  return thread_a->priority > thread_b->priority;
+}
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
@@ -374,6 +382,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -534,6 +543,10 @@ next_thread_to_run (void)
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
+struct thread* thread_idle(){
+  return idle_thread;
+}
+
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
 
@@ -590,6 +603,7 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+  // printf("thread reschedule enter %s\n", running_thread()->name);
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
