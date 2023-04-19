@@ -84,7 +84,6 @@ main (void)
   /* Break command line into arguments and parse options. */
   argv = read_command_line ();
   argv = parse_options (argv);
-
   /* Initialize ourselves as a thread so we can use locks,
      then enable console locking. */
   thread_init ();
@@ -95,6 +94,7 @@ main (void)
           init_ram_pages * PGSIZE / 1024);
 
   /* Initialize memory system. */
+
   palloc_init (user_page_limit);
   malloc_init ();
   paging_init ();
@@ -104,6 +104,7 @@ main (void)
   tss_init ();
   gdt_init ();
 #endif
+
 
   /* Initialize interrupt handlers. */
   intr_init ();

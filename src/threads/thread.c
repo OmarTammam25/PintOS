@@ -96,13 +96,11 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
   list_init(&sleep_list);
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  initial_thread->wakeup_time = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -117,7 +115,6 @@ thread_start (void)
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
-
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 }
@@ -202,10 +199,10 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
   /* Add to run queue. */
   thread_unblock (t);
-
+  if(thread_current() != idle_thread)
+    thread_yield();
   return tid;
 }
 
@@ -355,9 +352,33 @@ thread_compare_with_wakeup_time(const struct list_elem *a, const struct list_ele
 bool 
 thread_compare_with_priority(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
-  struct thread *thread_a = list_entry(a, struct thread, sleepElem);
-  struct thread *thread_b = list_entry(b, struct thread, sleepElem);
+  struct thread *thread_a = list_entry(a, struct thread, elem);
+  struct thread *thread_b = list_entry(b, struct thread, elem);
   return thread_a->priority > thread_b->priority;
+}
+int 
+max(int a, int b){
+  return a > b ? a : b;
+}
+
+void
+thread_donate_priority(struct thread* t, int mx){
+  // intr_disable();
+  // printf("\n");
+  // if(t->lock_waiting != NULL)
+  // printf("thread donation entered thread: %d %d\n",
+  //  mx, t->lock_waiting->holder->priority);
+  // intr_enable();
+
+  // intr_enable();
+
+  if(t->priority < mx){
+    // printf("priorty changed from %d to %d\n", t->priority, mx);
+    t->priority =  mx;
+  }
+  if(t->lock_waiting != NULL){
+    thread_donate_priority(t->lock_waiting->holder, t->priority);
+  }
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -382,7 +403,18 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  thread_yield();
+  thread_current() -> initial_priority = new_priority;
+  struct list_elem *lockIt;
+  for (lockIt = list_begin (&thread_current()->waiters); 
+  lockIt != list_end (&thread_current()->waiters); lockIt = list_next (lockIt))
+  {
+    struct thread* t = list_entry(lockIt, struct thread, waiterelem);
+    if(t->priority > thread_current()->priority){
+      thread_current()->priority = t->priority;
+    }
+  }
+  if(thread_current() != idle_thread)
+    thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -509,6 +541,10 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->initial_priority = priority;
+  t->wakeup_time = 0;
+  t->lock_waiting = NULL;
+  list_init(&t->waiters);
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -615,6 +651,15 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+  // struct list_elem *e;
+  // for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e))
+  // {
+  //   struct thread *t = list_entry (e, struct thread, elem);
+  //   printf("thread name: %s, priority: %d", t->name, t->priority);
+  // }
+  // printf("\n");
+  printf("currently running thread: %s, priority: %d\n",
+   thread_current()->name, thread_current()->priority);
 }
 
 /* Returns a tid to use for a new thread. */
