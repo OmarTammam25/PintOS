@@ -345,8 +345,8 @@ thread_compare_with_wakeup_time(const struct list_elem *a, const struct list_ele
 {
   struct thread *thread_a = list_entry(a, struct thread, sleepElem);
   struct thread *thread_b = list_entry(b, struct thread, sleepElem);
-  if(thread_a->wakeup_time == thread_b->wakeup_time)
-    return thread_a->priority > thread_b->priority;
+  // if(thread_a->wakeup_time == thread_b->wakeup_time)
+  //   return thread_a->priority > thread_b->priority;
   return thread_a->wakeup_time < thread_b->wakeup_time;
 }
 bool 
@@ -363,22 +363,11 @@ max(int a, int b){
 
 void
 thread_donate_priority(struct thread* t, int mx){
-  // intr_disable();
-  // printf("\n");
-  // if(t->lock_waiting != NULL)
-  // printf("thread donation entered thread: %d %d\n",
-  //  mx, t->lock_waiting->holder->priority);
-  // intr_enable();
-
-  // intr_enable();
-
-  if(t->priority < mx){
-    // printf("priorty changed from %d to %d\n", t->priority, mx);
+  if(t->priority < mx)
     t->priority =  mx;
-  }
-  if(t->lock_waiting != NULL){
+
+  if(t->lock_waiting != NULL)
     thread_donate_priority(t->lock_waiting->holder, t->priority);
-  }
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -658,8 +647,8 @@ schedule (void)
   //   printf("thread name: %s, priority: %d", t->name, t->priority);
   // }
   // printf("\n");
-  printf("currently running thread: %s, priority: %d\n",
-   thread_current()->name, thread_current()->priority);
+  // printf("currently running thread: %s, priority: %d\n",
+  //  thread_current()->name, thread_current()->priority);
 }
 
 /* Returns a tid to use for a new thread. */
