@@ -211,7 +211,9 @@ lock_acquire (struct lock *lock)
   if(lock->holder != NULL){
     list_push_back(&lock->holder->waiters, &thread_current()->waiterelem);
     thread_current()->lock_waiting = lock;
-    thread_donate_priority(thread_current(), thread_current()->priority);
+    if (!thread_mlfqs){
+      thread_donate_priority(thread_current(), thread_current()->priority);
+    }
   }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
@@ -249,17 +251,20 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   
-  thread_current()->priority = thread_current()->initial_priority;
-  struct list_elem *lockIt;
-  for (lockIt = list_begin (&thread_current()->waiters); 
-  lockIt != list_end (&thread_current()->waiters); lockIt = list_next (lockIt))
+  if (!thread_mlfqs)
   {
-    struct thread* t = list_entry(lockIt, struct thread, waiterelem);
-    if(t->lock_waiting == lock){
-      list_remove(&t->waiterelem);
-    }
-    else if(t->priority > thread_current()->priority){
-      thread_current()->priority = t->priority;
+    thread_current()->priority = thread_current()->initial_priority;
+    struct list_elem *lockIt;
+    for (lockIt = list_begin (&thread_current()->waiters); 
+    lockIt != list_end (&thread_current()->waiters); lockIt = list_next (lockIt))
+    {
+      struct thread* t = list_entry(lockIt, struct thread, waiterelem);
+      if(t->lock_waiting == lock){
+        list_remove(&t->waiterelem);
+      }
+      else if(t->priority > thread_current()->priority){
+        thread_current()->priority = t->priority;
+      }
     }
   }
 

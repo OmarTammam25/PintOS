@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "threads/real.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -19,6 +20,9 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+/* System Load Average */
+real load_avg = 0;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -101,6 +105,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  initial_thread->nice = 0;
+  initial_thread->recent_cpu = int_to_real(0);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -391,6 +397,7 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  if (thread_mlfqs) return;
   thread_current ()->priority = new_priority;
   thread_current() -> initial_priority = new_priority;
   struct list_elem *lockIt;
@@ -417,33 +424,92 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  struct thread t = *thread_current();
+  t.nice = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return real_to_int_round(mult_real(load_avg, int_to_real(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  real ans = mult_real(thread_current()->recent_cpu, int_to_real(100));
+  return real_to_int_round(ans);
 }
-
+
+/* calculate priority using the formula:
+priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
+*/
+void
+thread_calc_priority (struct thread *t, void * aux UNUSED)
+{
+  int x = real_to_int_round(div_real(t->recent_cpu, int_to_real(4)));
+  int new_priority = PRI_MAX - x - (t->nice *2);
+  t->priority = new_priority;
+}
+
+/* calculate recent CPU using the formula:
+recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice
+*/
+void
+thread_calc_recent_cpu (struct thread *t, void * aux UNUSED)
+{
+  real x = mult_real(load_avg, int_to_real(2));
+  real y = div_real(x, add_real(x, int_to_real(1)));
+  t->recent_cpu = add_real(mult_real(y, t->recent_cpu), int_to_real(t->nice));
+}
+
+/* calculate recent CPU using the formula:
+load_avg = (59/60)*load_avg + (1/60)*ready_threads
+*/
+void
+thread_calc_load_avg(void)
+{
+  real c1 = div_real(int_to_real(59), int_to_real(60));
+  real c2 = div_real(int_to_real(1), int_to_real(60));
+  load_avg = add_real(mult_real(c1, load_avg), mult_real(c2, int_to_real(list_size(&ready_list))));
+}
+
+/* increases recent cpu of the thread by 1 */
+void
+thread_increment_recent_cpu (void)
+{
+  struct thread t = *thread_current();
+  t.recent_cpu = add_real(t.recent_cpu, int_to_real(1));
+}
+
+/* recalculates the priority of all threads*/
+void
+thread_update_all_priority(void)
+{
+  intr_disable();
+  thread_foreach(thread_calc_priority, NULL);
+  intr_enable();
+  
+}
+
+/* recalculates recent cpu of all threads*/
+void
+thread_update_all_recent_cpu(void)
+{
+  intr_disable();
+  thread_foreach(thread_calc_recent_cpu, NULL);
+  intr_enable();
+}
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by

@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/real.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -90,6 +91,8 @@ struct thread
     int priority;      
     int initial_priority;
     int donated_priority;
+    int nice;
+    real recent_cpu;
     /* the time this thread should wakeup in */
     int64_t wakeup_time;                    /* Priority. */
     struct list waiters;                  /* List of locks held by this thread */
@@ -153,6 +156,12 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+void thread_calc_priority (struct thread *t, void * aux UNUSED);
+void thread_calc_recent_cpu (struct thread *t, void * aux UNUSED);
+void thread_calc_load_avg(void);
+void thread_increment_recent_cpu (void);
+void thread_update_all_priority(void);
+void thread_update_all_recent_cpu(void);
 struct thread* thread_idle(void);
 int max(int, int);
 
