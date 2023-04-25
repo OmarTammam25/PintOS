@@ -424,16 +424,17 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  enum intr_level old_level = intr_disable ();
   thread_current()->nice = nice;
-  intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  return thread_current()->nice;
+  enum intr_level old_level = intr_disable ();
+  int nice = thread_current()->nice;
+  intr_set_level (old_level);
+  return nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -457,7 +458,7 @@ priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
 void
 thread_calc_priority (struct thread *t, void * aux UNUSED)
 {
-  int x = real_to_int_round(div_real(t->recent_cpu, int_to_real(4)));
+  int x = real_to_int(div_real(t->recent_cpu, int_to_real(4)));
   int new_priority = PRI_MAX - x - (t->nice *2);
   t->priority = new_priority;
 }
@@ -481,29 +482,51 @@ thread_calc_load_avg(void)
 {
   real c1 = div_real(int_to_real(59), int_to_real(60));
   real c2 = div_real(int_to_real(1), int_to_real(60));
-  load_avg = add_real(mult_real(c1, load_avg), mult_real(c2, int_to_real(list_size(&ready_list))));
+  int count = 0;
+  if (thread_current() != thread_idle()){
+    count = list_size(&ready_list) + 1;
+  }
+  load_avg = add_real(mult_real(c1, load_avg), mult_real(c2, int_to_real(count)));
 }
 
 /* increases recent cpu of the thread by 1 */
 void
 thread_increment_recent_cpu (void)
 {
-  struct thread t = *thread_current();
-  t.recent_cpu = add_real(t.recent_cpu, int_to_real(1));
+  if (thread_current() == thread_idle()) return;
+  thread_current()->recent_cpu = add_real(thread_current()->recent_cpu, int_to_real(1));
 }
 
 /* recalculates the priority of all threads*/
 void
 thread_update_all_priority(void)
 {
-  thread_foreach(thread_calc_priority, NULL);
+  struct list_elem *e;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      thread_calc_priority (t, NULL);
+    }
 }
 
 /* recalculates recent cpu of all threads*/
 void
 thread_update_all_recent_cpu(void)
 {
-  thread_foreach(thread_calc_recent_cpu, NULL);
+  struct list_elem *e;
+
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      thread_calc_recent_cpu (t, NULL);
+    }
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
