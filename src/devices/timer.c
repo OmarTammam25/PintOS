@@ -181,18 +181,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
   if (thread_mlfqs)
   {
-    intr_disable();
+    enum intr_level old_level = intr_disable ();
     thread_increment_recent_cpu();
-    if (ticks % TIMER_FREQ)
+    if (!(timer_ticks() % TIMER_FREQ))
     {
       thread_calc_load_avg();
       thread_update_all_recent_cpu();
     }
-      if (ticks % 4)
+      if (!(timer_ticks() % 4))
     {
       thread_update_all_priority();
     }
-    intr_enable();
+    intr_set_level (old_level);
   }
 }
 
