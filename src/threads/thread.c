@@ -424,8 +424,9 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  struct thread t = *thread_current();
-  t.nice = nice;
+  intr_disable();
+  thread_current()->nice = nice;
+  intr_enable();
 }
 
 /* Returns the current thread's nice value. */
@@ -495,19 +496,14 @@ thread_increment_recent_cpu (void)
 void
 thread_update_all_priority(void)
 {
-  intr_disable();
   thread_foreach(thread_calc_priority, NULL);
-  intr_enable();
-  
 }
 
 /* recalculates recent cpu of all threads*/
 void
 thread_update_all_recent_cpu(void)
 {
-  intr_disable();
   thread_foreach(thread_calc_recent_cpu, NULL);
-  intr_enable();
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.

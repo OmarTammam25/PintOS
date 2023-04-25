@@ -179,12 +179,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
   // printf("current ticks: %"PRId64"\n", ticks);
   thread_wakeup();
   thread_tick ();
-  if (ticks % TIMER_FREQ) {
-    thread_calc_load_avg();
-    thread_update_all_recent_cpu();
-  }
-  if (ticks % 4) {
-    thread_update_all_priority();
+  if (thread_mlfqs)
+  {
+    intr_disable();
+    thread_increment_recent_cpu();
+    if (ticks % TIMER_FREQ)
+    {
+      thread_calc_load_avg();
+      thread_update_all_recent_cpu();
+    }
+      if (ticks % 4)
+    {
+      thread_update_all_priority();
+    }
+    intr_enable();
   }
 }
 
