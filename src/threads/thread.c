@@ -431,10 +431,7 @@ thread_set_nice (int nice UNUSED)
 int
 thread_get_nice (void) 
 {
-  enum intr_level old_level = intr_disable ();
-  int nice = thread_current()->nice;
-  intr_set_level (old_level);
-  return nice;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */

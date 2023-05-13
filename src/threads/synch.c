@@ -207,11 +207,12 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
-  if(lock->holder != NULL){
-    list_push_back(&lock->holder->waiters, &thread_current()->waiterelem);
-    thread_current()->lock_waiting = lock;
-    if (!thread_mlfqs){
+  if (!thread_mlfqs)
+  {
+    if(lock->holder != NULL)
+    {
+      list_push_back(&lock->holder->waiters, &thread_current()->waiterelem);
+      thread_current()->lock_waiting = lock;
       thread_donate_priority(thread_current(), thread_current()->priority);
     }
   }
